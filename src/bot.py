@@ -117,26 +117,32 @@ class MyBot(BaseAgent):
             self.active_sequence = kickoff_sequence(car_location)
             return self.active_sequence.tick(packet)
 
-        # 3.  SIMPLIFIED MODE: Aggressive ball chase -------------------------
-        # Target the ball directly for immediate contact
+        # 3.  GOAL-ORIENTED SHOOTING: Hit ball toward opponent goal -----------
         target_location = ball_location
         state_label = "CHASE"
         
-        # Lead the ball slightly when far away to intercept its path
+        # Find where the ball will be and position to shoot at goal
         distance_to_ball = car_location.dist(ball_location)
-        if distance_to_ball > 1500:
-            bp = self.get_ball_prediction_struct()
-            # Predict 0.5-1.5 seconds ahead based on distance
-            prediction_time = min(1.5, distance_to_ball / 1400.0)
-            future = find_slice_at_time(bp, packet.game_info.seconds_elapsed + prediction_time) if bp else None
-            if future is not None:
-                target_location = Vec3(future.physics.location)
-                state_label = "INTERCEPT"
         
-        # Only detour for boost if we're completely empty AND far from ball
-        if boost_amount < 5 and distance_to_ball > 3000:
+        # Try to find a good shot opportunity
+        shot_target = self._find_shot_toward_goal(packet, car_location, ball_location)
+        if shot_target is not None:
+            target_location = shot_target
+            state_label = "SHOOT"
+        else:
+            # No good shot - just get to the ball quickly
+            if distance_to_ball > 1200:
+                bp = self.get_ball_prediction_struct()
+                prediction_time = min(1.2, distance_to_ball / 1500.0)
+                future = find_slice_at_time(bp, packet.game_info.seconds_elapsed + prediction_time) if bp else None
+                if future is not None:
+                    target_location = Vec3(future.physics.location)
+                    state_label = "INTERCEPT"
+        
+        # Only get boost if critically low and not in a scoring position
+        if boost_amount < 10 and distance_to_ball > 2500 and state_label != "SHOOT":
             pad = find_nearest_active_pad(self.boost_pad_tracker, car_location)
-            if pad is not None and car_location.dist(pad.location) < distance_to_ball * 0.4:
+            if pad is not None and car_location.dist(pad.location) < 1500:
                 target_location = pad.location
                 state_label = "BOOST"
 
@@ -188,6 +194,35 @@ class MyBot(BaseAgent):
     # ------------------------------------------------------------------
     # Offense helpers
     # ------------------------------------------------------------------
+
+    def _find_shot_toward_goal(self, packet: GameTickPacket, car_location: Vec3, ball_location: Vec3):
+        """
+        Calculate where to drive to hit the ball toward the opponent goal.
+        Returns None if no good shot is available.
+        """
+        # Vector from ball to opponent goal
+        ball_to_goal = self.opponent_goal_location - ball_location
+        if ball_to_goal.flat().length() < 100:
+            return None  # Ball is basically in goal already
+        
+        # Target is BEHIND the ball (opposite side from goal)
+        # So our hit pushes ball toward goal
+        offset_distance = 130  # Distance behind ball to position ourselves
+        target = ball_location - (ball_to_goal.flat().normalized() * offset_distance)
+        
+        # Only take this shot if we can reach it and it's a reasonable angle
+        distance_to_target = car_location.flat().dist(target.flat())
+        if distance_to_target > 3000:
+            return None  # Too far, just chase ball instead
+        
+        # Check if this shot would actually send ball toward goal (angle check)
+        car_to_ball = (ball_location - car_location).flat()
+        if car_to_ball.length() > 50:
+            angle_to_goal = car_to_ball.ang_to(ball_to_goal.flat())
+            if angle_to_goal > 1.57:  # More than 90 degrees - bad angle
+                return None
+        
+        return Vec3(target.x, target.y, 0)
 
     def _find_hittable_intercept(self, packet: GameTickPacket, car_location: Vec3):
         """
