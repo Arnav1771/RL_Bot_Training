@@ -40,14 +40,14 @@ def throttle_to_reach_speed(current_speed: float, target_speed: float) -> float:
 def desired_speed_for_angle_and_distance(angle: float, distance: float) -> float:
     """Heuristic desired ground speed based on turn angle and target distance."""
     abs_angle = abs(angle)
-    if abs_angle < 0.25:
-        # Mostly lined up; go fast if the target is not right in front of us.
-        return 2300.0 if distance > 1000.0 else 1400.0
-    if abs_angle < 0.9:
-        # Medium turn; keep a controllable speed.
-        return 1200.0
-    # Big turn; slow down to pivot.
-    return 600.0
+    if abs_angle < 0.4:
+        # Mostly lined up; go supersonic if target is not right in front
+        return 2300.0 if distance > 600.0 else 1400.0
+    if abs_angle < 1.2:
+        # Medium turn; stay fast
+        return 1600.0
+    # Sharp turn; slow down but not too much
+    return 900.0
 
 
 def should_use_handbrake(current_speed: float, angle: float) -> bool:
@@ -63,19 +63,18 @@ def should_boost(
     boost_amount: float,
     target_speed: float,
 ) -> bool:
-    """Conservative boost usage: only when lined up and we're trying to go near max speed."""
+    """Aggressive boost usage: boost when lined up and we need more speed."""
     if not has_wheel_contact:
         return False
     if boost_amount <= 1.0:
         return False
-    if abs(angle) > 0.2:
+    # More lenient angle threshold
+    if abs(angle) > 0.35:
         return False
-    if distance < 1200.0:
-        return False
-    # Only boost when we actually want to go fast.
-    if target_speed < 2200.0:
-        return False
-    return current_speed < 2200.0
+    # Boost if we're trying to go fast and below target speed
+    if target_speed >= 1400.0 and current_speed < target_speed - 100:
+        return True
+    return False
 
 
 # ---------------------------------------------------------------------------

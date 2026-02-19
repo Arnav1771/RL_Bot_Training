@@ -117,40 +117,26 @@ class MyBot(BaseAgent):
             self.active_sequence = kickoff_sequence(car_location)
             return self.active_sequence.tick(packet)
 
-        # 3.  Determine game state: OFFENSE vs DEFENSE -----------------------
-        ball_on_our_side = self._ball_on_our_side(ball_location)
-        ball_behind_us = self._ball_behind_us(car_location, ball_location)
-        we_are_between_ball_and_goal = self._between_ball_and_own_goal(car_location, ball_location)
-
-        # 4.  Choose target location based on game state ----------------------
-        target_location: Vec3 = ball_location
+        # 3.  SIMPLIFIED MODE: Aggressive ball chase -------------------------
+        # Target the ball directly for immediate contact
+        target_location = ball_location
         state_label = "CHASE"
-
-        if not ball_on_our_side or not ball_behind_us:
-            # === OFFENSE =====================================================
-            intercept = self._find_hittable_intercept(packet, car_location)
-            if intercept is not None:
-                target_location = intercept
-                state_label = "OFFENSE"
-            else:
-                # Fall back to future ball prediction
-                target_location = self._predict_ball_fallback(packet, ball_location, car_location)
-                state_label = "APPROACH"
-        else:
-            # === DEFENSE =====================================================
-            if we_are_between_ball_and_goal:
-                # We're already in a decent position – challenge the ball
-                target_location = ball_location
-                state_label = "CHALLENGE"
-            else:
-                # Rotate back toward our goal (slightly offset toward ball)
-                target_location = self._defensive_rotation_target(ball_location)
-                state_label = "ROTATE"
-
-        # 5.  Low-boost detour ------------------------------------------------
-        if boost_amount < LOW_BOOST_THRESHOLD and state_label not in ("CHALLENGE", "OFFENSE"):
-            pad = find_best_boost_pad(self.boost_pad_tracker, car_location, target_location)
-            if pad is not None:
+        
+        # Lead the ball slightly when far away to intercept its path
+        distance_to_ball = car_location.dist(ball_location)
+        if distance_to_ball > 1500:
+            bp = self.get_ball_prediction_struct()
+            # Predict 0.5-1.5 seconds ahead based on distance
+            prediction_time = min(1.5, distance_to_ball / 1400.0)
+            future = find_slice_at_time(bp, packet.game_info.seconds_elapsed + prediction_time) if bp else None
+            if future is not None:
+                target_location = Vec3(future.physics.location)
+                state_label = "INTERCEPT"
+        
+        # Only detour for boost if we're completely empty AND far from ball
+        if boost_amount < 5 and distance_to_ball > 3000:
+            pad = find_nearest_active_pad(self.boost_pad_tracker, car_location)
+            if pad is not None and car_location.dist(pad.location) < distance_to_ball * 0.4:
                 target_location = pad.location
                 state_label = "BOOST"
 
@@ -305,7 +291,7 @@ class MyBot(BaseAgent):
     ) -> bool:
         """Decides whether to do a forward dodge to gain speed on the ground."""
         seconds = float(packet.game_info.seconds_elapsed)
-        if seconds - self._last_dodge_time < 1.6:
+        if seconds - self._last_dodge_time < 1.2:
             return False
 
         has_wheel_contact = bool(getattr(my_car, 'has_wheel_contact', False))
@@ -315,15 +301,15 @@ class MyBot(BaseAgent):
             return False
 
         angle = angle_to_target(my_car, target_location)
-        if abs(angle) > 0.12:
+        if abs(angle) > 0.2:
             return False
 
         distance = car_location.dist(target_location)
-        if distance < 2800.0:
+        if distance < 1800.0:
             return False
 
-        # Dodge for speed in the mid-speed range where it helps.
-        if not (650.0 < car_speed < 1550.0):
+        # Dodge for speed in a wider range
+        if not (500.0 < car_speed < 1650.0):
             return False
         return True
 
