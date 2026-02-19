@@ -1,38 +1,46 @@
 # Testing Against Pro Bots
 
-This branch (`pro_necto`) includes comparison setups against world-class ML bots.
+This branch (`pro_necto`) includes comparison setups against various opponents.
 
 ## Available Comparison Matches
 
-### 1. Stealth vs **Necto** (Hybrid ML + Rules)
+### 1. Stealth vs **AllStar AI** (Built-in, Works Immediately)
+- **Config:** `vs_allstar.cfg`
+- **Bot:** Rocket League's built-in AllStar bot (hardest AI)
+- **Run:** `python run.py -c vs_allstar.cfg`
+- **✅ Recommended for testing** - No setup required
+
+### 2. Stealth vs **Necto** (Hybrid ML + Rules)
 - **Config:** `compare_vs_necto.cfg`
 - **Bot:** World champion, hybrid approach (ML mechanics + rule-based strategy)
-- **Run:** `python run.py -c compare_vs_necto.cfg`
+- **⚠️ Requires old PyTorch** - Installation issues with modern Python
+- **Alternative:** Use RLBot GUI to download working version
 
-### 2. Stealth vs **Nexto** (Pure ML)
+### 3. Stealth vs **Nexto** (Pure ML)
 - **Config:** `compare_vs_nexto.cfg`
 - **Bot:** Pure reinforcement learning (PPO trained)
-- **Run:** `python run.py -c compare_vs_nexto.cfg`
+- **⚠️ Requires old PyTorch** - Installation issues with modern Python
 
 ## Quick Start
 
-**Option A: Command Line**
+**Option A: Test vs AllStar (Easiest)**
 ```bash
-# vs Necto (hardest)
-python run.py -c compare_vs_necto.cfg
-
-# vs Nexto (pure ML)
-python run.py -c compare_vs_nexto.cfg
+python run.py -c vs_allstar.cfg
 ```
 
-**Option B: RLBot GUI**
+**Option B: Test vs yourself**
+```bash
+python run.py
+# Runs 2 copies of Stealth against each other
+```
+
+**Option C: RLBot GUI** (Best for pro bots)
 1. Open RLBot GUI
-2. Click **"Add"** → **"Load folder"**
-3. Navigate to `Stealth/src/bot.cfg` (your bot)
-4. Click **"Add"** again → **"Load folder"**
-5. Navigate to `Necto/rlbot-support/Necto/bot.cfg` (or Nexto)
-6. Assign to opposite teams (Blue vs Orange)
-7. **Start Match**
+2. Click **"Download Bot Pack"** (downloads pre-configured bots)
+3. Click **"Add"** → Load `Stealth/src/bot.cfg` (your bot)
+4. Click **"Add"** → Pick any bot from the bot pack
+5. Assign to opposite teams (Blue vs Orange)
+6. **Start Match**
 
 ## What to Watch For
 
