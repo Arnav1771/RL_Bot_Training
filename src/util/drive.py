@@ -69,7 +69,7 @@ def should_boost(
     if boost_amount <= 1.0:
         return False
     # More lenient angle threshold
-    if abs(angle) > 0.35:
+    if abs(angle) > 0.6:
         return False
     # Boost if we're trying to go fast and below target speed
     if target_speed >= 1400.0 and current_speed < target_speed - 100:
